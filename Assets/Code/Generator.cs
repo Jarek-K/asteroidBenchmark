@@ -5,12 +5,14 @@ using UnityEngine;
 public class Generator : MonoBehaviour
 {
     public int asteroidRes;
-    public GameObject asteroid;
+    // public GameObject asteroid;
     public float asteroidMaxV;
     public float asteroidInstantiationTime;
     public List<Asteroid> asteroids = new List<Asteroid>();
     public List<Asteroid> bullets = new List<Asteroid>();
     Asteroid player;
+    public Mesh asteroid;
+    public Material asteroidMaterial;
     void Start()
     {
         Random.InitState(42);
@@ -31,7 +33,7 @@ public class Generator : MonoBehaviour
         //start with movement
 
         //check collisions
-        UpdateObject(player);
+        // UpdateObject(player);
 
         foreach (Asteroid aster in asteroids)
         {
@@ -44,6 +46,19 @@ public class Generator : MonoBehaviour
         }
 
         //sort list
+    }
+
+    private void Update()
+    {
+        // Matrix4x4[] matrices;
+        //draw objects
+        for (int i = 0; i < asteroids.Count; i += 1023)
+        {
+
+            Matrix4x4[] matrices = asteroids.GetRange(i, Mathf.Clamp(asteroids.Count - i, 0, 1023)).ConvertAll(x => x.Matrice()).ToArray();
+
+            Graphics.DrawMeshInstanced(asteroid, 0, asteroidMaterial, matrices);
+        }
     }
 
     void UpdateObject(Asteroid obj)
@@ -69,6 +84,7 @@ public class Asteroid
     public bool simulated;
     public Vector2 velocity;
 
+
     public Asteroid(float xPos, float yPos, Vector2 v, float intantiationTime)
     {
         xPosition = xPos;
@@ -78,5 +94,9 @@ public class Asteroid
         tillInstantiation = intantiationTime;
         simulated = false;
 
+    }
+    public Matrix4x4 Matrice()
+    {
+        return Matrix4x4.identity * Matrix4x4.Translate(new Vector3(xPosition, yPosition, 0));
     }
 }
