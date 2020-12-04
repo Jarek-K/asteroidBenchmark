@@ -9,10 +9,14 @@ public class Generator : MonoBehaviour
     public float asteroidMaxV;
     public float asteroidInstantiationTime;
     public List<Asteroid> asteroids = new List<Asteroid>();
+    public List<Asteroid> asteroidsInFrustum = new List<Asteroid>();
+
     public List<Asteroid> bullets = new List<Asteroid>();
     Asteroid player;
     public Mesh asteroid;
     public Material asteroidMaterial;
+    public Camera mainCam;
+    public float frustumMargin;
     void Start()
     {
         Random.InitState(42);
@@ -30,6 +34,8 @@ public class Generator : MonoBehaviour
     // Update is called once per frame
     void FixedUpdate()
     {
+        asteroidsInFrustum.Clear();
+        // asteroidsInFrustum.RemoveRange(0,asteroidsInFrustum.Count);
         //start with movement
 
         //check collisions
@@ -38,6 +44,11 @@ public class Generator : MonoBehaviour
         foreach (Asteroid aster in asteroids)
         {
             UpdateObject(aster);
+
+            if (aster.inFrustum(mainCam, frustumMargin))
+            {
+                asteroidsInFrustum.Add(aster);
+            }
 
         }
         foreach (Asteroid bullet in bullets)
@@ -52,12 +63,13 @@ public class Generator : MonoBehaviour
     {
         // Matrix4x4[] matrices;
         //draw objects
-        for (int i = 0; i < asteroids.Count; i += 1023)
+        for (int i = 0; i < asteroidsInFrustum.Count; i += 1023)
         {
 
-            Matrix4x4[] matrices = asteroids.GetRange(i, Mathf.Clamp(asteroids.Count - i, 0, 1023)).ConvertAll(x => x.Matrice()).ToArray();
+            Matrix4x4[] matrices = asteroidsInFrustum.GetRange(i, Mathf.Clamp(asteroidsInFrustum.Count - i, 0, 1023)).ConvertAll(x => x.Matrice()).ToArray();
 
             Graphics.DrawMeshInstanced(asteroid, 0, asteroidMaterial, matrices);
+
         }
     }
 
@@ -99,4 +111,16 @@ public class Asteroid
     {
         return Matrix4x4.identity * Matrix4x4.Translate(new Vector3(xPosition, yPosition, 0));
     }
+
+    public bool inFrustum(Camera camera, float margin)
+    {
+        Vector3 pos = camera.WorldToViewportPoint(new Vector3(xPosition, yPosition, 0));
+        if (pos.x < 1f + margin && pos.x > 0f - margin && pos.y < 1f + margin && pos.y > 0f - margin)
+        {
+            return true;
+        }
+        return false;
+    }
+
+
 }
