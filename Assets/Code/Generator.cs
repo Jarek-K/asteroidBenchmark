@@ -1,126 +1,97 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-
-public class Generator : MonoBehaviour
+namespace AsteroidBench
 {
-    public int asteroidRes;
-    // public GameObject asteroid;
-    public float asteroidMaxV;
-    public float asteroidInstantiationTime;
-    public List<Asteroid> asteroids = new List<Asteroid>();
-    public List<Asteroid> asteroidsInFrustum = new List<Asteroid>();
-
-    public List<Asteroid> bullets = new List<Asteroid>();
-    Asteroid player;
-    public Mesh asteroid;
-    public Material asteroidMaterial;
-    public Camera mainCam;
-    public float frustumMargin;
-    void Start()
+    public class Generator : MonoBehaviour
     {
-        Random.InitState(42);
-        for (int i = 0; i < asteroidRes; i++)
-        {
-            for (int j = 0; j < asteroidRes; j++)
-            {
+        public int asteroidRes;
+        // public GameObject asteroid;
+        public float asteroidMaxV;
+        public float asteroidInstantiationTime;
+        public List<CollidableObj> asteroids = new List<CollidableObj>();
+        public List<Matrix4x4> asteroidsInFrustum4x4 = new List<Matrix4x4>();
 
-                asteroids.Add(new Asteroid(i, j, new Vector2(Random.Range(-asteroidMaxV, asteroidMaxV), Random.Range(-asteroidMaxV, asteroidMaxV)), asteroidInstantiationTime));
+
+        public List<Asteroid> bullets = new List<Asteroid>();
+        Asteroid player;
+        public Mesh asteroid;
+        public Material asteroidMaterial;
+        public Transform mainCamTrans;
+        public Camera mainCam;
+        private float camSizeX;
+        private float camSizeY;
+        public float frustumMargin;
+        public float asteroidRadious;
+        void Start()
+        {
+            camSizeX = mainCam.orthographicSize * mainCam.aspect + frustumMargin;
+            camSizeY = mainCam.orthographicSize + frustumMargin;
+            Random.InitState(42);
+            for (int i = 0; i < asteroidRes; i++)
+            {
+                for (int j = 0; j < asteroidRes; j++)
+                {
+
+                    asteroids.Add(new Asteroid(i, j, new Vector2(Random.Range(-asteroidMaxV, asteroidMaxV), Random.Range(-asteroidMaxV, asteroidMaxV))));
+                }
             }
         }
-    }
 
 
-    // Update is called once per frame
-    void FixedUpdate()
-    {
-        asteroidsInFrustum.Clear();
-        // asteroidsInFrustum.RemoveRange(0,asteroidsInFrustum.Count);
-        //start with movement
 
-        //check collisions
-        // UpdateObject(player);
-
-        foreach (Asteroid aster in asteroids)
+        private void Update()
         {
-            UpdateObject(aster);
+            asteroidsInFrustum4x4.Clear();
 
-            if (aster.inFrustum(mainCam, frustumMargin))
+            Vector2 campPos = mainCamTrans.position;
+            float right = campPos.x + camSizeX;
+            float left = campPos.x - camSizeX;
+            float top = campPos.y + camSizeY;
+            float bottom = campPos.y - camSizeY;
+
+            for (int i = 0; i < asteroids.Count; i++)
             {
-                asteroidsInFrustum.Add(aster);
+                UpdateObject(asteroids[i]);
+
+
+                if (asteroidsInFrustum4x4.Count < 1023)
+                {
+                    if (asteroids[i].GetType() == typeof(Asteroid) && asteroids[i].inFrustum(top, bottom, left, right))
+                    {
+                        asteroidsInFrustum4x4.Add(asteroids[i].Matrice());
+                    }
+                }
+
+                int j = i;
+                while (j + 1 < asteroids.Count && Mathf.Pow(asteroids[j + 1].xPosition - asteroids[i].xPosition, 2) > asteroidRadious)
+                {
+                    j++;
+                    if (Mathf.Pow(asteroids[j].yPosition - asteroids[i].yPosition, 2) < asteroidRadious)
+                    {
+                        // print("fuck");
+                    }
+                }
+
+                // return false;
+
+            }
+            foreach (Asteroid bullet in bullets)
+            {
+                UpdateObject(bullet);
             }
 
+            Graphics.DrawMeshInstanced(asteroid, 0, asteroidMaterial, asteroidsInFrustum4x4);
+
+            asteroids.Sort((a, b) => (a.xPosition.CompareTo(b.xPosition)));
+
         }
-        foreach (Asteroid bullet in bullets)
+
+        void UpdateObject(CollidableObj obj)
         {
-            UpdateObject(bullet);
-        }
-
-        //sort list
-    }
-
-    private void Update()
-    {
-        // Matrix4x4[] matrices;
-        //draw objects
-        for (int i = 0; i < asteroidsInFrustum.Count; i += 1023)
-        {
-
-            Matrix4x4[] matrices = asteroidsInFrustum.GetRange(i, Mathf.Clamp(asteroidsInFrustum.Count - i, 0, 1023)).ConvertAll(x => x.Matrice()).ToArray();
-
-            Graphics.DrawMeshInstanced(asteroid, 0, asteroidMaterial, matrices);
+            obj.UpdateObject();
 
         }
-    }
-
-    void UpdateObject(Asteroid obj)
-    {
-        obj.xPosition = obj.xPosition + obj.velocity.x;
-        obj.yPosition = obj.yPosition + obj.velocity.y;
-        //check collision
-
     }
 }
 
-
-
-
-//maybe rename to collideable object or smth
-public class Asteroid
-{
-    public float xPosition;
-
-    public float yPosition;
-    public bool instantiate;
-    public float tillInstantiation;
-    public bool simulated;
-    public Vector2 velocity;
-
-
-    public Asteroid(float xPos, float yPos, Vector2 v, float intantiationTime)
-    {
-        xPosition = xPos;
-        yPosition = yPos;
-        velocity = v;
-        instantiate = false;
-        tillInstantiation = intantiationTime;
-        simulated = false;
-
-    }
-    public Matrix4x4 Matrice()
-    {
-        return Matrix4x4.identity * Matrix4x4.Translate(new Vector3(xPosition, yPosition, 0));
-    }
-
-    public bool inFrustum(Camera camera, float margin)
-    {
-        Vector3 pos = camera.WorldToViewportPoint(new Vector3(xPosition, yPosition, 0));
-        if (pos.x < 1f + margin && pos.x > 0f - margin && pos.y < 1f + margin && pos.y > 0f - margin)
-        {
-            return true;
-        }
-        return false;
-    }
-
-
-}
