@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace AsteroidBench
 {
-    public class CollidableObj
+    public abstract class CollidableObj
     {
         public float xPosition;
 
@@ -10,14 +10,14 @@ namespace AsteroidBench
 
         public bool simulated = true;
         public Vector2 velocity;
-
+        public float radius = 0.25f;
+        public CircleCollider2D col;
 
         public CollidableObj(float xPos, float yPos, Vector2 v)
         {
             xPosition = xPos;
             yPosition = yPos;
             velocity = v;
-
         }
         public Matrix4x4 Matrice()
         {
@@ -39,11 +39,18 @@ namespace AsteroidBench
 
         public void UpdateObject()
         {
-
-            xPosition = xPosition + velocity.x * Time.deltaTime;
-            yPosition = yPosition + velocity.y * Time.deltaTime;
+            if (simulated)
+            {
+                xPosition = xPosition + velocity.x * Time.deltaTime;
+                yPosition = yPosition + velocity.y * Time.deltaTime;
+            }
 
         }
+        public virtual void OnCollision()
+        {
+            simulated = false;
+        }
+
 
     }
 }

@@ -1,41 +1,68 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.SceneManagement;
+using UnityEngine.UI;
+
 namespace AsteroidBench
 {
     public class Generator : MonoBehaviour
     {
-        public int asteroidRes;
-        // public GameObject asteroid;
+        [Header("general settings")]
+        public int asteroidAmountX;
+        public bool centerSpawnOnPlayer;
+        public Text scoreText;
+        public GameObject lostScreen;
+        private int score;
+
+
+        [Header("asteroid settings")]
         public float asteroidMaxV;
         public float asteroidInstantiationTime;
-        public List<CollidableObj> asteroids = new List<CollidableObj>();
-        public List<Matrix4x4> asteroidsInFrustum4x4 = new List<Matrix4x4>();
-
-
-        public List<Asteroid> bullets = new List<Asteroid>();
-        Asteroid player;
-        public Mesh asteroid;
+        public Mesh asteroidMesh;
         public Material asteroidMaterial;
+        public float asteroidRadious;
+        [Header("player settings")]
+
+        public Mesh playerMesh;
+        public Material playerMaterial;
+        public float playerRadious;
+
+        public float playerVelocity;
+        public float playerAngularVelocity;
+
+        private CollidableObj playerObj;
+        [Header("bullet settings")]
+
+        public Mesh bulletMesh;
+        public Material bulletMaterial;
+        public float bulletRadious;
+        public float bulletVelocity;
+        public float bulletLifetime;
+        public float bulletFireTime;
+
+        [Header("camera settings")]
         public Transform mainCamTrans;
+        public float frustumMargin;
         public Camera mainCam;
+
+        private List<CollidableObj> collidables = new List<CollidableObj>();
+        private List<Matrix4x4> asteroidsInFrustum4x4 = new List<Matrix4x4>();
+
+
+        private List<CollidableObj> bullets = new List<CollidableObj>();
+
+        private List<List<CollidableObj>> collidableMatrix = new List<List<CollidableObj>>();
         private float camSizeX;
         private float camSizeY;
-        public float frustumMargin;
-        public float asteroidRadious;
+        private float left, right, top, bottom;
+        private Vector2 camPos;
         void Start()
         {
             camSizeX = mainCam.orthographicSize * mainCam.aspect + frustumMargin;
             camSizeY = mainCam.orthographicSize + frustumMargin;
-            Random.InitState(42);
-            for (int i = 0; i < asteroidRes; i++)
-            {
-                for (int j = 0; j < asteroidRes; j++)
-                {
+            StartGame();
 
-                    asteroids.Add(new Asteroid(i, j, new Vector2(Random.Range(-asteroidMaxV, asteroidMaxV), Random.Range(-asteroidMaxV, asteroidMaxV))));
-                }
-            }
         }
 
 
@@ -44,46 +71,72 @@ namespace AsteroidBench
         {
             asteroidsInFrustum4x4.Clear();
 
-            Vector2 campPos = mainCamTrans.position;
-            float right = campPos.x + camSizeX;
-            float left = campPos.x - camSizeX;
-            float top = campPos.y + camSizeY;
-            float bottom = campPos.y - camSizeY;
+            camPos = mainCamTrans.position;
+            right = camPos.x + camSizeX;
+            left = camPos.x - camSizeX;
+            top = camPos.y + camSizeY;
+            bottom = camPos.y - camSizeY;
+            float avgChecks = 0;
 
-            for (int i = 0; i < asteroids.Count; i++)
+            for (int i = 0; i < collidables.Count; i++)
             {
-                UpdateObject(asteroids[i]);
-
-
-                if (asteroidsInFrustum4x4.Count < 1023)
+                UpdateObject(collidables[i]);
+                if (collidables[i].simulated == true)
                 {
-                    if (asteroids[i].GetType() == typeof(Asteroid) && asteroids[i].inFrustum(top, bottom, left, right))
+
+
+                    if (collidables[i].GetType() == typeof(Asteroid))
                     {
-                        asteroidsInFrustum4x4.Add(asteroids[i].Matrice());
+                        if (collidables[i].inFrustum(top, bottom, left, right))
+                        {
+                            if (asteroidsInFrustum4x4.Count < 1023)
+                            {
+                                asteroidsInFrustum4x4.Add(collidables[i].Matrice());
+                            }
+                        }
                     }
-                }
 
-                int j = i;
-                while (j + 1 < asteroids.Count && Mathf.Pow(asteroids[j + 1].xPosition - asteroids[i].xPosition, 2) > asteroidRadious)
-                {
-                    j++;
-                    if (Mathf.Pow(asteroids[j].yPosition - asteroids[i].yPosition, 2) < asteroidRadious)
+
+                    // int j = i;
+
+                    // while (j - i < 80)// && j + 1 < collidables.Count )//&& collidables[j + 1].xPosition - collidables[i].xPosition < collidables[j + 1].radius + collidables[i].radius)
+                    // {
+                    //     j++;
+
+                    //     // if (collidables[i].simulated != false && (collidables[j].yPosition - collidables[i].yPosition) * (collidables[j].yPosition - collidables[i].yPosition) < 0.25f)//Mathf.Pow(collidables[j].yPosition - collidables[i].yPosition, 2) + Mathf.Pow(collidables[j].xPosition - collidables[i].xPosition, 2) < Mathf.Pow(collidables[j].radius + collidables[i].radius, 2))
+                    //     // {
+                    //     //     // collidables[i].OnCollision();
+                    //     //     // collidables[j].OnCollision();
+                    //     //     // break;
+                    //     //     // int obb = collidables.Find(collidables[i]);
+                    //     // }
+                    //     avgChecks++;
+                    // }
+                    for (int j = i; j < i + 80; j++)
                     {
-                        // print("fuck");
+                        if (collidables[i].xPosition < 15)
+                        {
+
+                        }
+                        if (j + 1 < collidables.Count && collidables[i].simulated != false && collidables[j + 1].xPosition - collidables[i].xPosition < collidables[j + 1].radius + collidables[i].radius && (collidables[j+1].yPosition - collidables[i].yPosition) * (collidables[j+1].yPosition - collidables[i].yPosition) < 0.25f)//Mathf.Pow(collidables[j].yPosition - collidables[i].yPosition, 2) + Mathf.Pow(collidables[j].xPosition - collidables[i].xPosition, 2) < Mathf.Pow(collidables[j].radius + collidables[i].radius, 2))
+                        {
+                            // collidables[i].OnCollision();
+                            // collidables[j].OnCollision();
+                            break;
+                            // int obb = collidables.Find(collidables[i]);
+                        }
                     }
                 }
 
                 // return false;
 
-            }
-            foreach (Asteroid bullet in bullets)
-            {
-                UpdateObject(bullet);
-            }
 
-            Graphics.DrawMeshInstanced(asteroid, 0, asteroidMaterial, asteroidsInFrustum4x4);
+            }
+            print(avgChecks / collidables.Count);
 
-            asteroids.Sort((a, b) => (a.xPosition.CompareTo(b.xPosition)));
+            Graphics.DrawMeshInstanced(asteroidMesh, 0, asteroidMaterial, asteroidsInFrustum4x4);
+
+            collidables.Sort((a, b) => (a.xPosition.CompareTo(b.xPosition)));
 
         }
 
@@ -91,6 +144,45 @@ namespace AsteroidBench
         {
             obj.UpdateObject();
 
+        }
+        void Die()
+        {
+            lostScreen.SetActive(true);
+            //pause simulation
+        }
+        private void StartGame()
+        {
+            Random.InitState(42);
+            playerObj = new Bullet(0, 0, Vector2.zero);
+            collidables.Add(playerObj);
+            for (int i = 0; i < bulletLifetime / bulletFireTime; i++)
+            {
+                bullets.Add(new Bullet(0, 0, Vector2.zero));
+                collidables.Add(bullets[i]);
+            }
+            for (int i = 0; i < asteroidAmountX; i++)
+            {
+                collidableMatrix.Add(new List<CollidableObj>());
+                for (int j = 0; j < asteroidAmountX; j++)
+                {
+                    collidables.Add(new Asteroid(i, j, new Vector2(Random.Range(-asteroidMaxV, asteroidMaxV), Random.Range(-asteroidMaxV, asteroidMaxV))));
+                    collidableMatrix[i].Add(collidables[collidables.Count - 1]);
+                }
+            }
+
+
+        }
+        public void RestartGame()
+        {
+            Random.InitState(42);
+            collidables.Clear();
+            asteroidsInFrustum4x4.Clear();
+            score = 0;
+            mainCamTrans.position = new Vector3(80, 80, -10);
+
+            StartGame();
+            lostScreen.SetActive(false);
+            //startSimulation
         }
     }
 }
