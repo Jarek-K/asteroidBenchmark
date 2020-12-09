@@ -13,7 +13,7 @@ namespace AsteroidBench
         public Vector2 velocity;
         public float diameter;
         public CircleCollider2D col;
-        public int greyzone = 0; //I know this should be some enum or sth
+        public int greyzone = 0; //I know this should be some enum or sth, directions 1-8 clockwise, start at up //greyzone is the area near the edge of the cell
         public bool updatedInLoop = false;
         public int unviableGreyzone = 0;
 

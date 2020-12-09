@@ -1,10 +1,13 @@
-﻿using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace AsteroidBench
 {
+    //I made a grid based collision system, it's fast, but it gets slow after some time cos entropy.(I'm storing all asteroids outside of the grid at edge cells)
+    //I could add a quick sort of the edge cells, but still at some point it would be slow, probably, I was also thinking about progresivly growing the grid. Or maybe a quadtree.
+    //I didn't look at optimizing things outside of collision since collision uses up most of the framtime
+    //I tried to write the code to be mostly self explanatory, but if necessary I can write more comments
     public class Generator : MonoBehaviour
     {
         private int chk;
@@ -64,78 +67,31 @@ namespace AsteroidBench
             camSizeX = mainCam.orthographicSize * mainCam.aspect + frustumMargin;
             camSizeY = mainCam.orthographicSize + frustumMargin;
             StartGame();
-            // matrixSize = asteroidAmountX;
 
         }
 
 
-        private int PositionToMatrix(float pos)
-        {
-            if (pos < 0)
-                return 0;
-            else if (pos > matrixSize - 1)
-                return matrixSize - 1;
-            else
-                return (int)pos;
-        }
+        //I know that the code could be tidier, but I assume that this is mostly an optimization task
         private void Update()
         {
             if (dead)
             {
                 return;
             }
-            if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow))
-            {
-                playerObj.xPosition = playerObj.xPosition + playerDirection.x * playerVelocity * Time.deltaTime;
-                playerObj.yPosition = playerObj.yPosition + playerDirection.y * playerVelocity * Time.deltaTime;
-
-            }
-            if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow))
-            {
-                playerDirection = new Vector2(
-                        playerDirection.x * Mathf.Cos(playerAngularVelocity * Time.deltaTime) - playerDirection.y * Mathf.Sin(playerAngularVelocity * Time.deltaTime),
-                        playerDirection.x * Mathf.Sin(playerAngularVelocity * Time.deltaTime) + playerDirection.y * Mathf.Cos(playerAngularVelocity * Time.deltaTime)
-                    );
-            }
-            else if (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow))
-            {
-                playerDirection = new Vector2(
-                       playerDirection.x * Mathf.Cos(-playerAngularVelocity * Time.deltaTime) - playerDirection.y * Mathf.Sin(-playerAngularVelocity * Time.deltaTime),
-                       playerDirection.x * Mathf.Sin(-playerAngularVelocity * Time.deltaTime) + playerDirection.y * Mathf.Cos(-playerAngularVelocity * Time.deltaTime)
-                   );
-            }
-
-            bulletTimer += Time.deltaTime;
-            if (bulletTimer > bulletFireTime)
-            {
-                bulletTimer = 0;
-                lastUsedBullet++;
-                if (lastUsedBullet > bullets.Count - 1)
-                    lastUsedBullet = 0;
-                bullets[lastUsedBullet].simulated = true;
-
-                collidableMatrix[PositionToMatrix(playerObj.xPosition + playerRadious * playerDirection.x)][PositionToMatrix(playerObj.yPosition + playerRadious * playerDirection.y)].Add(bullets[lastUsedBullet]);
-                collidableMatrix[PositionToMatrix(bullets[lastUsedBullet].xPosition)][PositionToMatrix(bullets[lastUsedBullet].yPosition)].Remove(bullets[lastUsedBullet]);
-                bullets[lastUsedBullet].xPosition = playerObj.xPosition + playerRadious * playerDirection.x;
-                bullets[lastUsedBullet].yPosition = playerObj.yPosition + playerRadious * playerDirection.y;
-
-                bullets[lastUsedBullet].velocity = playerDirection * bulletVelocity;
-                UpdateUnviableGreyzone(PositionToMatrix(playerObj.xPosition), PositionToMatrix(playerObj.yPosition), matrixSize, bullets[lastUsedBullet]);
-            }
-
+            InputHandle();
+            BulletHandle();
             CheckPlayerCollision();
 
-
-            chk = 0;
             asteroidsInFrustum4x4.Clear();
+
             camPos = mainCamTrans.position;
             right = camPos.x + camSizeX;
             left = camPos.x - camSizeX;
             top = camPos.y + camSizeY;
             bottom = camPos.y - camSizeY;
+
             for (int i = 0; i < collidableMatrix.Count; i++)
             {
-                // print("one line");
                 for (int j = 0; j < collidableMatrix[i].Count; j++)
                 {
                     for (int k = 0; k < collidableMatrix[i][j].Count; k++)
@@ -148,12 +104,12 @@ namespace AsteroidBench
 
                         if (currentObj.simulated == true)
                         {
-                            int grz = 0;
+                            //checking if obj changed the cell
                             int chkBnds = collidableMatrix[i][j][k].CheckUnbound(i, j);
                             if (chkBnds != 0)
                             {
                                 if (chkBnds != currentObj.unviableGreyzone)
-                                {
+                                {//directions 1-8 clockwise, start at up
                                     switch (chkBnds)
                                     {
                                         case 1:
@@ -343,7 +299,8 @@ namespace AsteroidBench
                                 }
 
                             }
-                            grz = currentObj.CheckGeryzone(i, j);
+                            int grz = 0;
+                            grz = currentObj.CheckGeryzone(i, j); //greyzone is the area near the edge of the cell
                             CollidableObj collided = null;
                             collided = CheckCollisionMatrix(currentObj, i, j);
                             if (collided != null)
@@ -355,12 +312,12 @@ namespace AsteroidBench
                                 collided.OnCollision();
                                 currentObj.OnCollision();
                             }
-                            else
-                            if (grz != 0)
+                            //checking nearby cells if object close to edge, if yes check collision
+                            else if (grz != 0)
                             {
                                 if (currentObj.unviableGreyzone != grz)
                                 {
-
+                                    //directions 1-8 clockwise, start at up
                                     switch (grz)
                                     {
 
@@ -521,7 +478,7 @@ namespace AsteroidBench
                         }
                         else
                         {
-
+                            //respawning asteroids
                             if (currentObj.spawned == true)
                             {
                                 currentObj.spawned = false;
@@ -555,10 +512,9 @@ namespace AsteroidBench
                     }
                 }
             }
-            loopUpdateCycle = !loopUpdateCycle;
+            loopUpdateCycle = !loopUpdateCycle;// ensures no objects move twice in cycle
             playerGObj.transform.SetPositionAndRotation(new Vector3(playerObj.xPosition, playerObj.yPosition, 0), Quaternion.LookRotation(Vector3.forward, new Vector3(playerDirection.x, playerDirection.y, 0)));
             mainCamTrans.position = new Vector3(playerObj.xPosition, playerObj.yPosition, -10);
-            print(chk);
             Graphics.DrawMeshInstanced(asteroidMesh, 0, asteroidMaterial, asteroidsInFrustum4x4);
         }
 
@@ -571,6 +527,35 @@ namespace AsteroidBench
         {
             dead = true;
             lostScreen.SetActive(true);
+        }
+        private int PositionToMatrix(float pos)
+        {
+            if (pos < 0)
+                return 0;
+            else if (pos > matrixSize - 1)
+                return matrixSize - 1;
+            else
+                return (int)pos;
+        }
+        private void BulletHandle()
+        {
+            bulletTimer += Time.deltaTime;
+            if (bulletTimer > bulletFireTime)
+            {
+                bulletTimer = 0;
+                lastUsedBullet++;
+                if (lastUsedBullet > bullets.Count - 1)
+                    lastUsedBullet = 0;
+                bullets[lastUsedBullet].simulated = true;
+
+                collidableMatrix[PositionToMatrix(playerObj.xPosition + playerRadious * playerDirection.x)][PositionToMatrix(playerObj.yPosition + playerRadious * playerDirection.y)].Add(bullets[lastUsedBullet]);
+                collidableMatrix[PositionToMatrix(bullets[lastUsedBullet].xPosition)][PositionToMatrix(bullets[lastUsedBullet].yPosition)].Remove(bullets[lastUsedBullet]);
+                bullets[lastUsedBullet].xPosition = playerObj.xPosition + playerRadious * playerDirection.x;
+                bullets[lastUsedBullet].yPosition = playerObj.yPosition + playerRadious * playerDirection.y;
+
+                bullets[lastUsedBullet].velocity = playerDirection * bulletVelocity;
+                UpdateUnviableGreyzone(PositionToMatrix(playerObj.xPosition), PositionToMatrix(playerObj.yPosition), matrixSize, bullets[lastUsedBullet]);
+            }
         }
         private void StartGame()
         {
@@ -605,8 +590,30 @@ namespace AsteroidBench
 
         }
 
+        private void InputHandle()
+        {
+            if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow))
+            {
+                playerObj.xPosition = playerObj.xPosition + playerDirection.x * playerVelocity * Time.deltaTime;
+                playerObj.yPosition = playerObj.yPosition + playerDirection.y * playerVelocity * Time.deltaTime;
 
-        private void UpdateUnviableGreyzone(int i, int j, int max, CollidableObj obj)
+            }
+            if (Input.GetKey(KeyCode.A) || Input.GetKey(KeyCode.LeftArrow))
+            {
+                playerDirection = new Vector2(
+                        playerDirection.x * Mathf.Cos(playerAngularVelocity * Time.deltaTime) - playerDirection.y * Mathf.Sin(playerAngularVelocity * Time.deltaTime),
+                        playerDirection.x * Mathf.Sin(playerAngularVelocity * Time.deltaTime) + playerDirection.y * Mathf.Cos(playerAngularVelocity * Time.deltaTime)
+                    );
+            }
+            else if (Input.GetKey(KeyCode.D) || Input.GetKey(KeyCode.RightArrow))
+            {
+                playerDirection = new Vector2(
+                       playerDirection.x * Mathf.Cos(-playerAngularVelocity * Time.deltaTime) - playerDirection.y * Mathf.Sin(-playerAngularVelocity * Time.deltaTime),
+                       playerDirection.x * Mathf.Sin(-playerAngularVelocity * Time.deltaTime) + playerDirection.y * Mathf.Cos(-playerAngularVelocity * Time.deltaTime)
+                   );
+            }
+        }
+        private void UpdateUnviableGreyzone(int i, int j, int max, CollidableObj obj) //greyzone= area near edge of cell, directions clockwise 1-8 starting with up
         {
             if (i == 0)
             {
@@ -705,6 +712,7 @@ namespace AsteroidBench
         }
         private void CheckPlayerCollision()
         {
+            //could be included in regular detection but would be slower since i would have to check each collision for player type
             int pX = PositionToMatrix(playerObj.xPosition);
             int pY = PositionToMatrix(playerObj.yPosition);
             if (CheckCollisionMatrix(playerObj, pX, pY) != null)
