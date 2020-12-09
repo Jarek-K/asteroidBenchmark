@@ -1,18 +1,16 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
-using System;
 
 namespace AsteroidBench
 {
     public class Generator : MonoBehaviour
     {
+        private int chk;
         [Header("general settings")]
         public int asteroidAmountX;
         public int matrixSize;
-        public bool centerSpawnOnPlayer;
         public Text scoreText;
         public GameObject lostScreen;
         private int score;
@@ -26,8 +24,6 @@ namespace AsteroidBench
         public float asteroidRadious;
         [Header("player settings")]
         public GameObject playerGObj;
-        public Mesh playerMesh;
-        public Material playerMaterial;
         public float playerRadious;
 
         public float playerVelocity;
@@ -37,8 +33,6 @@ namespace AsteroidBench
         private CollidableObj playerObj;
         [Header("bullet settings")]
 
-        public Mesh bulletMesh;
-        public Material bulletMaterial;
         public float bulletRadious;
         public float bulletVelocity;
         public float bulletLifetime;
@@ -70,7 +64,7 @@ namespace AsteroidBench
             camSizeX = mainCam.orthographicSize * mainCam.aspect + frustumMargin;
             camSizeY = mainCam.orthographicSize + frustumMargin;
             StartGame();
-            matrixSize = asteroidAmountX;
+            // matrixSize = asteroidAmountX;
 
         }
 
@@ -86,10 +80,10 @@ namespace AsteroidBench
         }
         private void Update()
         {
-            // if (dead)
-            // {
-            //     return;
-            // }
+            if (dead)
+            {
+                return;
+            }
             if (Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow))
             {
                 playerObj.xPosition = playerObj.xPosition + playerDirection.x * playerVelocity * Time.deltaTime;
@@ -110,6 +104,7 @@ namespace AsteroidBench
                        playerDirection.x * Mathf.Sin(-playerAngularVelocity * Time.deltaTime) + playerDirection.y * Mathf.Cos(-playerAngularVelocity * Time.deltaTime)
                    );
             }
+
             bulletTimer += Time.deltaTime;
             if (bulletTimer > bulletFireTime)
             {
@@ -126,22 +121,18 @@ namespace AsteroidBench
 
                 bullets[lastUsedBullet].velocity = playerDirection * bulletVelocity;
                 UpdateUnviableGreyzone(PositionToMatrix(playerObj.xPosition), PositionToMatrix(playerObj.yPosition), matrixSize, bullets[lastUsedBullet]);
-
-                // print("shot" + bullets[lastUsedBullet].xPosition + "dass " +playerObj.xPosition);
-
             }
-            asteroidsInFrustum4x4.Clear();
 
+            CheckPlayerCollision();
+
+
+            chk = 0;
+            asteroidsInFrustum4x4.Clear();
             camPos = mainCamTrans.position;
             right = camPos.x + camSizeX;
             left = camPos.x - camSizeX;
             top = camPos.y + camSizeY;
             bottom = camPos.y - camSizeY;
-
-            if (CheckCollisionMatrix(playerObj, PositionToMatrix(playerObj.xPosition), PositionToMatrix(playerObj.yPosition)) != null)
-            {
-                Die();
-            }
             for (int i = 0; i < collidableMatrix.Count; i++)
             {
                 // print("one line");
@@ -150,10 +141,6 @@ namespace AsteroidBench
                     for (int k = 0; k < collidableMatrix[i][j].Count; k++)
                     {
                         CollidableObj currentObj = collidableMatrix[i][j][k];
-                        if (currentObj == null)
-                        {
-                            return;
-                        }
                         if (loopUpdateCycle != currentObj.updatedInLoop)
                         {
                             UpdateObject(currentObj);
@@ -167,12 +154,6 @@ namespace AsteroidBench
                             {
                                 if (chkBnds != currentObj.unviableGreyzone)
                                 {
-                                    // if (currentObj.unviableGreyzone != null)
-                                    // {
-
-                                    // }
-                                    // if (!(currentObj.unviableGreyzone != null && Array.Exists(currentObj.unviableGreyzone, element => element == chkBnds)))
-                                    // {
                                     switch (chkBnds)
                                     {
                                         case 1:
@@ -243,7 +224,7 @@ namespace AsteroidBench
 
                                             if (i + 1 < collidableMatrix.Count)
                                             {
-                                                if (j != 0)// && j - 1 < collidableMatrix[i + 1].Count)
+                                                if (j != 0)
                                                 {
 
 
@@ -262,7 +243,7 @@ namespace AsteroidBench
                                                 }
 
                                             }
-                                            else if (j != 0)// && j - 1 < collidableMatrix[i + 1].Count)
+                                            else if (j != 0)
                                             {
 
 
@@ -319,7 +300,7 @@ namespace AsteroidBench
                                             break;
                                         case 7:
 
-                                            if (i != 0)// < collidableMatrix[i].Count)
+                                            if (i != 0)
                                             {
 
                                                 collidableMatrix[i - 1][j].Add(collidableMatrix[i][j][k]);
@@ -360,7 +341,7 @@ namespace AsteroidBench
                                         default: break;
                                     }
                                 }
-                                // }
+
                             }
                             grz = currentObj.CheckGeryzone(i, j);
                             CollidableObj collided = null;
@@ -377,7 +358,6 @@ namespace AsteroidBench
                             else
                             if (grz != 0)
                             {
-                                // if (!(currentObj.unviableGreyzone != null && Array.Exists(currentObj.unviableGreyzone, element => element == grz))){
                                 if (currentObj.unviableGreyzone != grz)
                                 {
 
@@ -522,59 +502,50 @@ namespace AsteroidBench
                                         currentObj.OnCollision();
                                     }
                                 }
-                                // }
 
                             }
 
 
-
-                            if (currentObj.GetType() == typeof(Asteroid) || currentObj.GetType() == typeof(Bullet))
+                            // ok I know bullets out of asteroids is not a real optimazation, but it works
+                            // if (currentObj.GetType() == typeof(Asteroid) || currentObj.GetType() == typeof(Bullet))
+                            // {
+                            if (currentObj.inFrustum(top, bottom, left, right))
                             {
-                                // if (currentObj.simulated == true)
-                                // {
-                                if (currentObj.inFrustum(top, bottom, left, right))
+                                if (asteroidsInFrustum4x4.Count < 1023) //I know it could be better but it's not really possible that there are more than 1023 obj on screen in this case
                                 {
-                                    if (asteroidsInFrustum4x4.Count < 1023) //I know it could be better but it's not really possible that there's more than 1023
-                                    {
-                                        asteroidsInFrustum4x4.Add(currentObj.Matrice());
-                                    }
+                                    asteroidsInFrustum4x4.Add(currentObj.Matrice());
                                 }
-
                             }
+                            // }
 
                         }
                         else
                         {
-                            if (currentObj.GetType() == typeof(Asteroid))
+
+                            if (currentObj.spawned == true)
                             {
-                                // Asteroid aster = (Asteroid)currentObj;
-                                if (currentObj.spawned == true)
+                                currentObj.spawned = false;
+                                currentObj.xPosition = UnityEngine.Random.Range(matrixSize / 2 - asteroidAmountX / 2, matrixSize / 2 + asteroidAmountX / 2);
+
+                                if (currentObj.xPosition < left || currentObj.xPosition > right || bottom > asteroidAmountX / 2 + matrixSize / 2 || top < 0)
                                 {
-                                    // print("reviwe");
-                                    currentObj.spawned = false;
-                                    // currentObj.Instantiate();
-                                    currentObj.xPosition = UnityEngine.Random.Range(0, asteroidAmountX);
-
-                                    if (currentObj.xPosition < left || currentObj.xPosition > right || bottom > asteroidAmountX || top < 0)
-                                    {
-                                        currentObj.yPosition = UnityEngine.Random.Range(0, asteroidAmountX);
-
-                                    }
-                                    else
-                                    {
-                                        do
-                                        {
-                                            currentObj.yPosition = UnityEngine.Random.Range(0, asteroidAmountX);
-                                        } while (!(bottom > currentObj.yPosition || top < currentObj.yPosition));
-                                    }
-                                    currentObj.simulated = true;
-                                    collidableMatrix[(int)currentObj.xPosition][(int)currentObj.yPosition].Add(currentObj);
-                                    collidableMatrix[i][j].Remove(currentObj);
-
-                                    currentObj.velocity = new Vector2(UnityEngine.Random.Range(-asteroidMaxV, asteroidMaxV), UnityEngine.Random.Range(-asteroidMaxV, asteroidMaxV));
-                                    UpdateUnviableGreyzone((int)currentObj.xPosition, (int)currentObj.yPosition, matrixSize, currentObj);
+                                    currentObj.yPosition = UnityEngine.Random.Range(matrixSize / 2 - asteroidAmountX / 2, matrixSize / 2 + asteroidAmountX / 2);
 
                                 }
+                                else
+                                {
+                                    do
+                                    {
+                                        currentObj.yPosition = UnityEngine.Random.Range(matrixSize / 2 - asteroidAmountX / 2, matrixSize / 2 + asteroidAmountX / 2);
+                                    } while (!(bottom > currentObj.yPosition || top < currentObj.yPosition));
+                                }
+                                currentObj.simulated = true;
+                                collidableMatrix[(int)currentObj.xPosition][(int)currentObj.yPosition].Add(currentObj);
+                                collidableMatrix[i][j].Remove(currentObj);
+
+                                currentObj.velocity = new Vector2(UnityEngine.Random.Range(-asteroidMaxV, asteroidMaxV), UnityEngine.Random.Range(-asteroidMaxV, asteroidMaxV));
+                                UpdateUnviableGreyzone((int)currentObj.xPosition, (int)currentObj.yPosition, matrixSize, currentObj);
+
                             }
                         }
 
@@ -585,10 +556,10 @@ namespace AsteroidBench
                 }
             }
             loopUpdateCycle = !loopUpdateCycle;
-
-            Graphics.DrawMeshInstanced(asteroidMesh, 0, asteroidMaterial, asteroidsInFrustum4x4);
             playerGObj.transform.SetPositionAndRotation(new Vector3(playerObj.xPosition, playerObj.yPosition, 0), Quaternion.LookRotation(Vector3.forward, new Vector3(playerDirection.x, playerDirection.y, 0)));
             mainCamTrans.position = new Vector3(playerObj.xPosition, playerObj.yPosition, -10);
+            print(chk);
+            Graphics.DrawMeshInstanced(asteroidMesh, 0, asteroidMaterial, asteroidsInFrustum4x4);
         }
 
         void UpdateObject(CollidableObj obj)
@@ -605,20 +576,24 @@ namespace AsteroidBench
         {
             UnityEngine.Random.InitState(42);
 
-            for (int i = 0; i < asteroidAmountX; i++)
+            for (int i = 0; i < matrixSize; i++)
             {
                 collidableMatrix.Add(new List<List<CollidableObj>>());
-                for (int j = 0; j < asteroidAmountX; j++)
+                for (int j = 0; j < matrixSize; j++)
                 {
-                    // collidables.Add();
                     collidableMatrix[i].Add(new List<CollidableObj>());
-                    //velocity == 0 is possible but i don't think that thats what this part of the task was about
-                    collidableMatrix[i][j].Add(new Asteroid(i, j, new Vector2(UnityEngine.Random.Range(-asteroidMaxV, asteroidMaxV), UnityEngine.Random.Range(-asteroidMaxV, asteroidMaxV)), asteroidRadious));
-                    UpdateUnviableGreyzone(i, j, matrixSize, collidableMatrix[i][j][0]);
+                    if (i >= matrixSize / 2 - asteroidAmountX / 2 && i < matrixSize / 2 + asteroidAmountX / 2 && j >= matrixSize / 2 - asteroidAmountX / 2 && j < matrixSize / 2 + asteroidAmountX / 2)
+                    {
+                        //velocity == 0 is possible but i don't think that thats what this part of the task was about
+                        collidableMatrix[i][j].Add(new Asteroid(i, j, new Vector2(UnityEngine.Random.Range(-asteroidMaxV, asteroidMaxV), UnityEngine.Random.Range(-asteroidMaxV, asteroidMaxV)), asteroidRadious, asteroidInstantiationTime));
+                        UpdateUnviableGreyzone(i, j, matrixSize, collidableMatrix[i][j][0]);
+
+                    }
+
+
                 }
             }
-            playerObj = new CollidableObj(asteroidAmountX / 2 + 0.5f, asteroidAmountX / 2 + 0.5f, Vector2.zero, playerRadious);
-            // collidableMatrix[(int)playerObj.xPosition][(int)playerObj.yPosition].Add(playerObj);
+            playerObj = new CollidableObj(matrixSize / 2 + 0.5f, matrixSize / 2 + 0.5f, Vector2.zero, playerRadious);
 
             for (int i = 0; i < bulletLifetime / bulletFireTime; i++)
             {
@@ -631,7 +606,7 @@ namespace AsteroidBench
         }
 
 
-        public void UpdateUnviableGreyzone(int i, int j, int max, CollidableObj obj)
+        private void UpdateUnviableGreyzone(int i, int j, int max, CollidableObj obj)
         {
             if (i == 0)
             {
@@ -687,16 +662,20 @@ namespace AsteroidBench
 
             for (int p = 0; p < collidableMatrix[i][j].Count; p++)
             {
+
+
                 if (loopUpdateCycle != collidableMatrix[i][j][p].updatedInLoop)
                 {
                     UpdateObject(collidableMatrix[i][j][p]);
                 }
-                if (a != collidableMatrix[i][j][p] && collidableMatrix[i][j][p].simulated == true)
+                if (collidableMatrix[i][j][p].simulated == true && a != collidableMatrix[i][j][p])
                 {
+                    chk++;
                     if ((a.xPosition - collidableMatrix[i][j][p].xPosition) * (a.xPosition - collidableMatrix[i][j][p].xPosition) + (a.yPosition - collidableMatrix[i][j][p].yPosition) * (a.yPosition - collidableMatrix[i][j][p].yPosition) < ((a.diameter + collidableMatrix[i][j][p].diameter) * (a.diameter + collidableMatrix[i][j][p].diameter)) / 4)
                     {
                         return collidableMatrix[i][j][p];
                     }
+
                 }
             }
             return null;
@@ -723,10 +702,57 @@ namespace AsteroidBench
 
             StartGame();
             lostScreen.SetActive(false);
-            //startSimulation
         }
-
-
+        private void CheckPlayerCollision()
+        {
+            int pX = PositionToMatrix(playerObj.xPosition);
+            int pY = PositionToMatrix(playerObj.yPosition);
+            if (CheckCollisionMatrix(playerObj, pX, pY) != null)
+                Die();
+            if (pX > 0)
+            {
+                if (pY > 0)
+                {
+                    if (CheckCollisionMatrix(playerObj, pX - 1, pY - 1) != null)
+                        Die();
+                }
+                else if (pY < matrixSize - 1)
+                {
+                    if (CheckCollisionMatrix(playerObj, pX - 1, pY + 1) != null)
+                        Die();
+                }
+                if (CheckCollisionMatrix(playerObj, pX - 1, pY) != null)
+                    Die();
+            }
+            else if (pX < matrixSize - 1)
+            {
+                if (pY > 0)
+                {
+                    if (CheckCollisionMatrix(playerObj, pX + 1, pY - 1) != null)
+                        Die();
+                }
+                else if (pY < matrixSize - 1)
+                {
+                    if (CheckCollisionMatrix(playerObj, pX + 1, pY + 1) != null)
+                        Die();
+                }
+                if (CheckCollisionMatrix(playerObj, pX + 1, pY) != null)
+                    Die();
+            }
+            else if (pY > 0)
+            {
+                if (CheckCollisionMatrix(playerObj, pX, pY - 1) != null)
+                    Die();
+            }
+            else if (pY < matrixSize - 1)
+            {
+                if (CheckCollisionMatrix(playerObj, pX, pY + 1) != null)
+                    Die();
+            }
+        }
     }
+
+
 }
+
 

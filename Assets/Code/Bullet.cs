@@ -8,10 +8,7 @@ namespace AsteroidBench
 
         public Bullet(float xPos, float yPos, Vector2 v, float rad) : base(xPos, yPos, v, rad)
         {
-            xPosition = xPos;
-            yPosition = yPos;
-            velocity = v;
-            diameter = rad;
+          
         }
 
 

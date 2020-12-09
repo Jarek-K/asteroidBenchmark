@@ -6,15 +6,17 @@ namespace AsteroidBench
     {
         public float tillInstantiation;
         public float instantiationTime = 1;
-        public bool readyToInstantiate;
 
         public Asteroid(float xPos, float yPos, Vector2 v, float rad) : base(xPos, yPos, v, rad)
         {
-            xPosition = xPos;
-            yPosition = yPos;
-            velocity = v;
-            diameter = rad;
+
         }
+        public Asteroid(float xPos, float yPos, Vector2 v, float rad, float instaTime) : base(xPos, yPos, v, rad)
+        {
+
+            instantiationTime = instaTime;
+        }
+        //I think that virtual functions are slower, in this situation it would probably save around .2ms 
         public override void UpdateObject()
         {
             if (simulated)
@@ -36,10 +38,7 @@ namespace AsteroidBench
 
         }
 
-        public override void Instantiate()
-        {
-            readyToInstantiate = false;
-        }
+
 
         public override void OnCollision()
         {

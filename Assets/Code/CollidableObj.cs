@@ -56,10 +56,7 @@ namespace AsteroidBench
 
         }
 
-        public virtual void Instantiate()
-        {
-
-        }
+    
 
         public int CheckBounds(int x, int y, float cX, float cY, float rad)
         {
